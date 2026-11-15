@@ -1,0 +1,41 @@
+{
+  "name": "mathmastery",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.15.4",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,magenta \"pnpm --filter @mm/api dev\" \"pnpm --filter @mm/web dev\"",
+    "build": "pnpm --filter @mm/web build && pnpm --filter @mm/api build",
+    "start": "pnpm --filter @mm/api start",
+    "lint": "eslint .",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "pnpm -r --if-present test",
+    "test:e2e": "playwright test",
+    "db:generate": "pnpm --filter @mm/api db:generate",
+    "db:migrate": "pnpm --filter @mm/api db:migrate",
+    "content:parse": "pnpm --filter @mm/api content:parse",
+    "content:ingest": "pnpm --filter @mm/api content:ingest",
+    "content:enrich": "pnpm --filter @mm/api content:enrich",
+    "content:approve": "pnpm --filter @mm/api content:approve",
+    "seed:dev": "pnpm --filter @mm/api seed:dev"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.65.1",
+    "@types/node": "^26.6.6",
+    "concurrently": "^10.0.7",
+    "eslint": "^10.15.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.7",
+    "globals": "^17.14.0",
+    "prettier": "^3.10.1",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "typescript-eslint": "^8.72.2",
+    "vitest": "^5.1.0"
+  }
+}
