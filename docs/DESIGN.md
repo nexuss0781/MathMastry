@@ -9,13 +9,15 @@
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────┐
-│                            BROWSER                                       │
-│  Next.js App Router (RSC)  ·  client islands: map, editor, tutor stream   │
-└───────────────┬──────────────────────────────────────────────┬─────────────┘
-                │ server actions / route handlers              │
-┌───────────────▼──────────────────────────────────────────────▼─────────────┐
-│                        APPLICATION (Next.js server)                        │
-│  auth guard · zod validation · rate limit · use-cases · authorization      │
+│                            BROWSER                                         │
+│  Vite SPA · React 19 · TanStack Router/Query · lazy routes                  │
+│  lazy views: atlas map, assessment editor, tutor stream                     │
+└───────────────┬────────────────────────────────────────────────────────────┘
+                │ same-origin fetch / SSE
+┌───────────────▼────────────────────────────────────────────────────────────┐
+│                     HONO API (Node 22) — also serves the SPA               │
+│  auth guard · zod validation · rate limit · use-cases · authorization       │
+│  static assets · SPA fallback · meta injection for public routes            │
 │                                                                            │
 │  ┌──────────────┐  ┌───────────────┐  ┌──────────────┐  ┌───────────────┐  │
 │  │ Mastery      │  │ Scheduler     │  │ Planner      │  │ Streak        │  │
@@ -25,9 +27,9 @@
 └───────┬──────────────────────┬───────────────────────┬─────────────────────┘
         │                      │                       │
 ┌───────▼────────┐   ┌─────────▼──────────┐   ┌────────▼─────────────────────┐
-│ Postgres (Neon)│   │ AI gateway         │   │ Job runner (cron + DB queue) │
-│ Drizzle        │   │ AI SDK             │   │ enrichment retries, streak   │
-│ pgvector       │   │ chat/grade/embed   │   │ recompute, usage rollups     │
+│ Postgres (Neon)│   │ AI gateway         │   │ Job runner (in-process +     │
+│ Drizzle        │   │ AI SDK             │   │ advisory lock): retries,     │
+│ pgvector       │   │ chat/grade/embed   │   │ streak recompute, rollups    │
 └────────────────┘   └────────────────────┘   └──────────────────────────────┘
         ▲
         │ offline, reproducible
@@ -46,23 +48,36 @@
 
 | Layer | Choice | Version policy |
 |---|---|---|
-| Framework | Next.js App Router, React 19 | current stable major |
+| UI | React 19 + Vite (SPA) | pinned |
 | Language | TypeScript, `strict: true`, `noUncheckedIndexedAccess` | pinned |
+| Routing / server state | TanStack Router + TanStack Query | pinned |
+| API | Hono 4 on Node 22 | pinned |
+| Monorepo | pnpm workspaces: `apps/web`, `apps/api`, `packages/shared` | — |
 | Styling | Tailwind CSS v4 + shadcn/ui + Radix primitives | pinned minor |
 | Database | Postgres 16 + pgvector (Neon) | managed |
 | ORM | Drizzle ORM + drizzle-kit migrations | pinned |
-| Auth | Better Auth: email OTP + GitHub OAuth | pinned |
-| AI | Vercel AI SDK; provider via env (`AI_CHAT_MODEL`, `AI_GRADER_MODEL`, `AI_EMBED_MODEL`) | config, not code |
+| Auth | Better Auth (Hono adapter): email OTP + GitHub OAuth | pinned |
+| AI | AI SDK, provider-agnostic; env (`AI_CHAT_MODEL`, `AI_GRADER_MODEL`, `AI_EMBED_MODEL`) | config, not code |
 | Scheduling | `ts-fsrs` wrapped in a domain module | pinned |
 | Validation | Zod at every boundary | pinned |
-| Math | KaTeX (server-rendered where possible) | pinned |
+| Math | KaTeX (pre-rendered where possible) | pinned |
 | Search | Postgres FTS + trigram + pgvector, reciprocal-rank fusion | native |
 | Tests | Vitest, Playwright, axe | pinned |
-| CI/CD | GitHub Actions → Vercel; Neon branches for previews | — |
+| CI/CD | GitHub Actions → Fly.io (or Railway); Neon branches for staging | — |
 | Email | Resend | — |
 | Analytics | PostHog (product events), Sentry (errors) | — |
+| Logging | pino, structured JSON | — |
 
-**Rejected:** a graph database (429 nodes is small), Redux (no need), Prisma (Drizzle's SQL transparency wins here), a separate vector store (pgvector is enough), microservices (one deployable).
+**Rejected:** Next.js (SSR/RSC overhead and slower dev/build for an authenticated app), a graph database (429 nodes is small), Redux (no need), Prisma (Drizzle's SQL transparency wins here), a separate vector store (pgvector is enough), microservices (one deployable).
+
+### 2.1 Why not Next.js
+
+- The product is authenticated and interactive. SSR buys almost nothing; every route is user-specific except the public atlas.
+- Vite gives sub-100 ms HMR and route-level code splitting without a framework runtime or a server component model.
+- Hono is a small, Web-standard server. It serves `/api/*` and the built SPA on **one origin**, so cookies, CORS, and streaming stay simple.
+- AI streaming is SSE, not RSC streaming; no framework feature is lost.
+- SEO for the 429 public concept pages is handled by injecting title/description/OG/JSON-LD into the shell, plus a generated sitemap and a `<noscript>` summary. No SSR required.
+- **Trade-off accepted:** bots that do not execute JavaScript see metadata and a summary, not the rendered body. Google renders the SPA; social cards use the injected OG tags.
 
 ---
 
@@ -70,12 +85,12 @@
 
 | Layer | Owns | Must not |
 |---|---|---|
-| **Presentation** | RSC pages, client islands, design tokens, accessibility | contain business rules |
-| **Application** | auth guard, zod parsing, rate limits, use-cases, transaction boundaries | render |
+| **Presentation** | Vite SPA routes, client state, design tokens, accessibility | contain business rules |
+| **Application** | Hono routes and middleware, auth guard, zod parsing, rate limits, use-cases, transaction boundaries | render |
 | **Domain** | mastery transitions, FSRS, planner, streak, rubric aggregation | touch the DB or network |
 | **Data** | Drizzle schemas, repositories, SQL, migrations | make authorization decisions |
 | **Integrations** | AI provider, email, OAuth | receive raw user input unvalidated |
-| **Ops** | cron jobs, ingestion CLI, observability | mutate published content silently |
+| **Ops** | scheduler, ingestion CLI, observability | mutate published content silently |
 
 The domain layer is pure and deterministic. Every algorithm below is unit-tested with an injected clock.
 
@@ -328,26 +343,29 @@ Target: **< $0.03 per active user-day** at MVP volumes. Controls: quotas (40 mes
 
 ## 9. API surface
 
-| Method / action | Path | Purpose |
+| Method | Path | Purpose |
 |---|---|---|
-| `*` | `/api/auth/[...all]` | Better Auth |
-| `POST` | `/api/ai/chat` | stream tutor response; tools; quota-checked |
+| `*` | `/api/auth/*` | Better Auth (Hono adapter) |
+| `POST` | `/api/ai/chat` | SSE tutor stream; tools; quota-checked |
 | `GET` | `/api/search?q=&domain=&level=` | hybrid search |
+| `GET` | `/api/concepts/:slug` | card, sources, edges, user state |
 | `GET` | `/api/atlas/graph?domain=` | nodes + edges for the map |
 | `GET` | `/api/progress/summary` | heatmap, domain mastery, streak, due count |
+| `POST` | `/api/concepts/:id/start` | create/touch state |
+| `POST` | `/api/assessments` | grade + transition + activity |
+| `POST` | `/api/reviews` | FSRS recall |
+| `PATCH` | `/api/concepts/:id/level` | self-report, capped at 1 |
+| `POST` | `/api/notes` | note / idea / question |
+| `POST` | `/api/curricula` | compile plan |
+| `PATCH` | `/api/profile` | timezone, goal, minutes |
+| `POST` | `/api/reviews/:id/dispute` | audit path |
 | `GET` | `/api/export?format=json|md|anki` | user data + notes |
-| `POST` | `/api/jobs/run` | cron only, shared secret |
+| `POST` | `/api/jobs/run` | scheduler only, shared secret |
 | `GET` | `/api/health` | app + DB + AI config |
-| action | `startConcept(conceptId)` | create/touch state |
-| action | `submitAssessment({conceptId, kind, answer, idempotencyKey})` | grade + transition + activity |
-| action | `submitRecall(...)` | FSRS review |
-| action | `setClaimedLevel(...)` | self-report, capped at 1 |
-| action | `createNote(...)` | note / idea / question |
-| action | `generateCurriculum({goal, weeklyMinutes, horizonWeeks})` | compile plan |
-| action | `updateProfile(...)` | timezone, goal, minutes |
-| action | `disputeReview(reviewId, reason)` | audit path |
+| `GET` | `/sitemap.xml`, `/robots.txt` | generated from published content |
+| `GET` | `/*` | SPA shell; meta injection for public routes |
 
-Every mutation: Zod parse → auth → ownership check → transaction → revalidate. Every read: auth where user state is involved; public content reads are cacheable.
+All mutations are **same-origin JSON fetches**; TanStack Query owns cache invalidation. There are no server actions. Streaming is SSE via Hono's `streamSSE`; the client consumes it with `fetch` + `ReadableStream` and aborts with `AbortController`.
 
 ---
 
@@ -355,14 +373,15 @@ Every mutation: Zod parse → auth → ownership check → transaction → reval
 
 ### 10.1 Concept read
 
-1. Fetch concept + domain + sources (one query).
-2. Fetch edges + neighbor one-liners (one query).
-3. Fetch user state (one query, skipped for anonymous).
-4. Assemble; cache public content 60 s; user state never cached across users.
+1. Client calls `GET /api/concepts/:slug`; TanStack Query dedupes and caches for 60 s.
+2. Server fetches concept + domain + sources (one query).
+3. Fetch edges + neighbor one-liners (one query).
+4. Fetch user state (one query, skipped for anonymous).
+5. Assemble; public content cacheable 60 s; user state never cached across users.
 
 **Target:** p95 < 50 ms server time.
 
-### 10.2 Assessment write (single transaction)
+### 10.2 Assessment write — `POST /api/assessments` (single transaction)
 
 1. `SELECT … FOR UPDATE` on user state (serialize per user+concept).
 2. Insert `reviews` with idempotency key (duplicate → return existing result).
@@ -374,15 +393,17 @@ Every mutation: Zod parse → auth → ownership check → transaction → reval
 
 **Guarantee:** zero lost submissions; duplicate submits return the same result.
 
-### 10.3 Chat write
+### 10.3 Chat write — SSE
 
-- Stream tokens; persist user message before the call; persist assistant message on finish.
+- `POST /api/ai/chat` opens `streamSSE`; persist the user message before the call.
+- Headers: `Cache-Control: no-cache`, `Connection: keep-alive`, `X-Accel-Buffering: no`; heartbeat event every 15 s.
+- Stream tokens as `data:` events; persist the assistant message on finish.
 - Abort → `status: partial`; content preserved.
 - Usage increment after completion, never blocks the stream.
 
 ### 10.4 Dashboard read
 
-Three aggregate queries: last 365 days of activity, per-domain state counts, next 20 due items. Cache 30 s per user. **Target:** p95 < 150 ms.
+`GET /api/progress/summary` runs three aggregate queries: last 365 days of activity, per-domain state counts, next 20 due items. Cache 30 s per user. **Target:** p95 < 150 ms.
 
 ---
 
@@ -413,10 +434,10 @@ Three aggregate queries: last 365 days of activity, per-domain state counts, nex
 | `/today` | daily queue, streak, next curriculum item |
 | `/atlas` | domains, list, filters |
 | `/atlas/map` | graph view |
-| `/atlas/[domain]` | domain detail |
-| `/concept/[slug]` | workspace: card, evidence, tutor |
+| `/atlas/$domain` | domain detail |
+| `/concept/$slug` | workspace: card, evidence, tutor |
 | `/curriculum` | plans |
-| `/curriculum/[id]` | weekly timeline |
+| `/curriculum/$id` | weekly timeline |
 | `/progress` | heatmap, stats, mastery table, forecast |
 | `/lab` | idea sparks, transfer notes |
 | `/settings` | profile, timezone, AI quota, export/delete |
@@ -466,7 +487,7 @@ SVG + `d3-force` with domain clustering, 429 nodes and <2k edges, viewport culli
 |---|---|
 | Sessions | httpOnly, secure, sameSite=lax, 30-day rolling; Better Auth CSRF |
 | Authorization | repository functions require `userId`; ownership in SQL, never in the client |
-| Input | Zod at every action/route; parameterized queries via Drizzle |
+| Input | Zod at every route/mutation; parameterized queries via Drizzle |
 | AI | content treated as data; tool allowlist; no secrets in prompts; sanitized output; assessment lock |
 | Rate limits | 60 req/min/user; login throttling; AI daily quotas; global kill switch |
 | Admin | `profiles.role = 'admin'` checked server-side; separate route group |
@@ -501,7 +522,7 @@ SVG + `d3-force` with domain clustering, 429 nodes and <2k edges, viewport culli
 - **Errors:** Sentry with release + route tags.
 - **AI traces:** mode, model, tool calls, latency, citation validity, grader score distribution.
 - **Product metrics:** DAU, evidence days, assessments/day, pass rate, disputes, retention cohort, cost/user.
-- **Alerts:** error rate >1%, AI failure >5%, p95 latency budget breach, daily spend > cap, cron silence >15 min.
+- **Alerts:** error rate >1%, AI failure >5%, p95 latency budget breach, daily spend > cap, scheduler silence >15 min.
 
 ---
 
@@ -509,14 +530,16 @@ SVG + `d3-force` with domain clustering, 429 nodes and <2k edges, viewport culli
 
 | Environment | App | DB | Notes |
 |---|---|---|---|
-| dev | local | Neon dev branch | seed content |
-| preview | Vercel preview | Neon branch per PR | migrations applied |
-| prod | Vercel | Neon primary | PITR 7 days |
+| dev | local: Vite `5173` + Hono `8787` | Neon dev branch | Vite proxies `/api` to Hono |
+| staging | Fly.io or Railway app | Neon branch | migrations on deploy |
+| prod | Fly.io or Railway | Neon primary | one Node service, PITR 7 days |
 
+- Build: `pnpm build` emits `apps/web/dist` and `apps/api/dist`; a Docker image runs Hono, which serves hashed assets with immutable caching and falls back to the SPA shell.
 - CI order: install → lint → typecheck → unit → integration → build → migrate (staging) → deploy → smoke.
 - Migrations are forward-only; destructive changes require a two-step expand/contract.
-- Cron: `/api/jobs/run` every 5 min (secret header); nightly streak recompute; weekly coverage report.
+- Scheduler: in-process interval (60 s) guarded by a Postgres advisory lock; `/api/jobs/run` remains available for manual or external triggers; `/api/health` reports the last successful run.
 - Backups: Neon PITR; content artifacts are in git, so content is recoverable by design.
+- No CDN framework layer: static assets are content-hashed and cached at the edge in front of the single Node service.
 
 ---
 
@@ -525,11 +548,12 @@ SVG + `d3-force` with domain clustering, 429 nodes and <2k edges, viewport culli
 | Layer | Tool | What is proven |
 |---|---|---|
 | Domain unit | Vitest | parser counts, state transitions, rubric aggregation, FSRS determinism, planner DAG/budget, streak across timezones/DST |
-| Data integration | Vitest + real Postgres | migrations, transactions, idempotency, ownership scoping, index usage on hot queries |
-| E2E | Playwright | sign-in → concept → assessment → level-up → review due → curriculum → export |
+| API integration | Vitest + Hono `app.request()` + real Postgres | routes, auth scoping, SSE framing, idempotency, ownership |
+| Data integration | Vitest + real Postgres | migrations, transactions, index usage on hot queries |
+| E2E | Playwright | sign-in → concept → assessment → level-up → review due → curriculum → export, against the built single-origin app |
 | AI evals | script + golden set | 50 graded answers: ≥85% agreement; 100% citation validity; 10 prompt-injection cases blocked |
 | Accessibility | axe + manual keyboard | zero critical issues on 6 core routes |
-| Performance | Lighthouse CI + SQL benchmarks | budgets in §10 and LCP <2 s |
+| Performance | Lighthouse CI + SQL benchmarks + size-limit | budgets in §10; initial JS <200 KB gzip; LCP <2 s |
 
 **Definition of done for any feature:** typed, tested, accessible, no console errors, budget met, docs updated.
 
@@ -543,7 +567,10 @@ SVG + `d3-force` with domain clustering, 429 nodes and <2k edges, viewport culli
 | LLM latency | Stream; static card first; tutor is additive, never blocking. |
 | LLM cost | Quotas, routing, caching, batch enrichment, kill switch. |
 | LLM error | Rubrics, evidence ledger, disputes, human sign-off for L3. |
-| Serverless time limit | Batch work is offline; runtime is per-request only. |
+| Long-running batch work | Offline CLI only; the runtime is per-request and streaming. |
+| Framework overhead | Vite SPA + Hono; no SSR/RSC runtime; one Node process. |
+| SEO without SSR | Shell meta injection for public routes; sitemap; JSON-LD; `<noscript>` summary. |
+| SPA deep links | Hono SPA fallback + route-level code splitting; no blank 404 on refresh. |
 | Human attention | Weekly minutes stored; planner never exceeds them by >10%. |
 | Timezone complexity | One function computes the local day; one test matrix proves it. |
 | Graph correctness | DAG check at ingest; locks computed from approved edges only. |

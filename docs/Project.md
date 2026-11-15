@@ -135,10 +135,11 @@ The product is designed for one user first: the builder-learner. Every feature m
 
 | Choice | Rationale |
 |---|---|
-| **Next.js 15 App Router + TypeScript strict** | One codebase for SSR pages, streaming AI, and server mutations; strong typing end to end. |
+| **Vite + React 19 SPA (TanStack Router + Query)** | Fastest dev loop and smallest runtime for an authenticated, interactive app; no SSR/RSC tax. |
+| **Hono on Node 22** | Tiny, Web-standard HTTP layer; serves the API and the built SPA from one origin and one process. |
 | **Postgres + pgvector (Neon)** | Relational mastery state and semantic retrieval in one store; no second database to operate. |
 | **Drizzle ORM** | Typed SQL without hiding it; migrations are explicit; complex aggregates stay readable. |
-| **Offline content pipeline (CLI)** | 429-concept enrichment is batch work; serverless time limits are the wrong shape. Reproducible artifacts, reviewable diffs. |
+| **Offline content pipeline (CLI)** | 429-concept enrichment is batch work; request/response time limits are the wrong shape. Reproducible artifacts, reviewable diffs. |
 | **Better Auth** | Own the user table; email OTP + GitHub OAuth; no vendor lock on identity. |
 | **FSRS** | Current best open scheduling algorithm; deterministic, testable, no proprietary service. |
 | **Rubric grading with structured output** | Mastery must be a number with evidence, not a vibe. |
@@ -156,12 +157,14 @@ The product is designed for one user first: the builder-learner. Every feature m
 | Content is finite (429 concepts) | A coverage contract and dashboard: 100% pages, enrichment %, mastery %. "All" becomes a number. |
 | LLM cost | Per-user quotas, model routing, prompt-prefix caching, batch enrichment, hard kill switch. |
 | LLM fallibility | Rubrics + evidence ledger + dispute path + no AI-only L3. Grades are auditable. |
-| Serverless execution limits | Enrichment and embedding run offline; runtime only streams and scores. |
+| Long-running batch work | Enrichment and embedding run offline; runtime only streams and scores. |
 | User attention is the real limit | Weekly minutes drive the curriculum; daily queue is capped; no infinite feed. |
 | Streak anxiety | Only evidence days count; rest tokens; the graph tells the truth without punishment. |
 | Timezones and DST | Day boundaries computed in the user's IANA timezone; tested across DST edges. |
 | Scope creep | Gated phases; one active phase; no next phase without approval. |
 | Privacy | Answers are never used for training; export and delete are first-class. |
+| Framework overhead | Vite SPA + Hono; no SSR/RSC runtime; one Node process serves API and static assets. |
+| Public pages need SEO without SSR | Hono injects title, description, OG tags, and JSON-LD into the SPA shell; sitemap + noscript summary. |
 
 ---
 

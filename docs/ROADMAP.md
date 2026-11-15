@@ -20,7 +20,7 @@
 
 | Phase | Scope | Depends on | Exit metric (one line) |
 |---|---|---|---|
-| **P1** | Scaffold: Next.js, TS strict, Tailwind, shadcn, Drizzle, Neon, Better Auth, CI, tokens | — | CI green; sign-in/out works; migrations applied; health `db: ok` |
+| **P1** | Scaffold: pnpm workspace, Vite + React SPA, Hono API, TS strict, Tailwind, shadcn, Drizzle, Neon, Better Auth, Docker, CI | — | CI green; sign-in/out works; migrations applied; health `db: ok` |
 | **P2** | Content pipeline + Atlas: parser, seed, enrichment, embeddings, edges, concept/domain pages, search, map | P1 | 429/429 pages; 100% embedded; search p95 <100 ms; map 60 fps |
 | **P3** | Progress: user state, manual level, activity, streaks, heatmap, dashboard | P2 | Streak tests pass in 4 timezones; heatmap 365 days exact; state auth-scoped |
 | **P4** | AI tutor: streaming, context assembly, tools, citations, quotas, modes | P2 | First token p95 <2 s; 100% citations valid; injection suite blocked |

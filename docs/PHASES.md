@@ -10,31 +10,36 @@ Each phase ships a working slice, proves it, and stops for approval. Acceptance 
 
 **Tasks**
 
-- Initialize Next.js (App Router, `src/`, TypeScript strict, Tailwind v4).
-- Enable `strict`, `noUncheckedIndexedAccess`, `noImplicitOverride`; path aliases.
+- Initialize the pnpm workspace: `apps/web` (Vite + React + TypeScript), `apps/api` (Hono + Node 22), `packages/shared`.
+- Enable `strict`, `noUncheckedIndexedAccess`, `noImplicitOverride`; path aliases; project references.
 - ESLint + Prettier + import ordering; fail CI on warnings.
+- TanStack Router + TanStack Query; route skeleton with lazy chunks.
 - shadcn/ui init; commit the component primitives actually used.
-- Design tokens in `src/styles/globals.css`: paper/ink/vermilion, Fraunces + Geist + Geist Mono, light/dark.
-- Git init, `.gitignore`, first commit.
-- Drizzle + Neon: `src/db/index.ts`, `drizzle.config.ts`, migration workflow.
-- Better Auth: email OTP + GitHub OAuth; `src/lib/auth.ts`, auth route handler, session helper.
+- Design tokens in `apps/web/src/styles/globals.css`: paper/ink/vermilion, Fraunces + Geist + Geist Mono, light/dark.
+- Repo hygiene: `.gitignore`, `README.md`, links to `docs/`.
+- Drizzle + Neon: `apps/api/src/db/index.ts`, `drizzle.config.ts`, migration workflow.
+- Better Auth (Hono adapter): email OTP + GitHub OAuth; `apps/api/src/auth.ts`, session middleware.
 - `profiles` table + migration; auto-create profile on first sign-in.
-- App shell: marketing landing placeholder, `(auth)/sign-in`, `(app)` layout with nav and user menu.
+- Hono serves `/api/*` and the built SPA; Vite proxies `/api` in dev; SPA fallback for deep links.
+- App shell: marketing landing placeholder, `/sign-in`, authenticated layout with nav and user menu.
 - `GET /api/health` → `{ app, db, ai }` (AI reports configured/not configured, never the key).
-- `src/lib/env.ts`: Zod-validated environment; fail fast at boot.
-- Vitest (+ jsdom where needed), Playwright, first unit test, first smoke E2E.
+- Zod-validated env at boot in both apps; only `VITE_*` public values reach the client.
+- Vitest (web/api/shared), Playwright, first unit test, first smoke E2E.
+- Dockerfile + production build: one Node process serving API and static assets.
 - GitHub Actions: install → lint → typecheck → unit → build → e2e (smoke).
-- `.env.example`, `README.md`, links to `docs/`.
+- `.env.example`.
 
 **Exit criteria**
 
 1. CI is green on a fresh push with zero lint warnings and zero type errors.
-2. GitHub sign-in works on the dev deployment; session survives refresh; sign-out clears it.
-3. From an empty database, `drizzle-kit migrate` creates auth + `profiles`; health reports `db: "ok"`.
-4. `/api/health` leaks no secret and returns 503 when the DB is unreachable.
-5. Playwright smoke: landing loads, sign-in page loads, health responds.
-6. Landing shell meets AA contrast in both themes; fonts load without layout shift.
-7. `pnpm build` completes; no `.env` values committed.
+2. `pnpm dev` starts both processes; a component edit reflects in <100 ms; `/api` is proxied without CORS.
+3. GitHub sign-in works same-origin; session survives refresh; sign-out clears it.
+4. From an empty database, `drizzle-kit migrate` creates auth + `profiles`; health reports `db: "ok"`.
+5. `/api/health` leaks no secret and returns 503 when the DB is unreachable.
+6. `pnpm build` then `docker run` serves the SPA and returns 200 on a deep link (`/atlas`) after refresh; hashed assets are immutable; initial JS <200 KB gzip.
+7. Playwright smoke: landing loads, sign-in page loads, health responds.
+8. Landing shell meets AA contrast in both themes; fonts load without layout shift.
+9. No `.env` values committed; only `VITE_*` appears in the client bundle (grep test).
 
 **Depends on:** nothing.
 
@@ -60,21 +65,22 @@ Each phase ships a working slice, proves it, and stops for approval. Acceptance 
 - Embeddings: batch embed, HNSW index, backfill command.
 - Edge builder: glossary related + AI prerequisites + embedding neighbors; confidence weights; SCC cycle removal; degree caps.
 - Hybrid search: FTS + trigram + vector, RRF fusion; `GET /api/search`.
-- Atlas UI: `/atlas`, `/atlas/[domain]`, `/concept/[slug]`, `/atlas/map` (SVG + d3-force).
+- Atlas UI (TanStack Router): `/atlas`, `/atlas/$domain`, `/concept/$slug`, `/atlas/map` (SVG + d3-force, lazy chunk).
 - Concept page: card sections, sources, prerequisites/related, mastery placeholder, "Ask" entry point.
 - Coverage surface: counts for pages, enriched, reviewed, embedded.
-- Metadata + sitemap for concept pages.
+- SEO surface: Hono injects title/description/OG/JSON-LD into the shell for concept and domain routes; generated `sitemap.xml`, `robots.txt`, and a `<noscript>` summary.
 
 **Exit criteria**
 
 1. Parse test asserts exactly **429 concepts / 12 domains**; CI fails on drift.
-2. 429/429 concept routes return 200 with term, one-liner, and ≥1 source.
+2. 429/429 concept routes return the SPA shell with concept-specific title, description, and OG tags in the initial HTML (`curl` test); the app renders term, one-liner, and ≥1 source.
 3. 100% of concepts embedded; search returns results in <100 ms p95 over 50 queries.
 4. Relevance: top-3 hit rate ≥85% on a 20-query golden set.
 5. Graph is a DAG: zero cycles, ≤8 prerequisites per node; map holds 60 fps pan/zoom with 429 nodes.
 6. Enrichment coverage ≥90% draft (or 100% of what the configured model produced, with failures listed); no invented slugs.
 7. Coverage dashboard numbers match the database exactly.
-8. E2E: browse domain → open concept → follow a related edge.
+8. Deep-link refresh (`/concept/forcing`) returns 200 via SPA fallback; no blank page.
+9. E2E: browse domain → open concept → follow a related edge.
 
 **Depends on:** P1.
 
@@ -89,11 +95,11 @@ Each phase ships a working slice, proves it, and stops for approval. Acceptance 
 **Tasks**
 
 - Schema + migration: `user_concept_state`, `daily_activity`, `user_streaks`.
-- `startConcept` action: lazy state creation, status transition.
+- `POST /api/concepts/:id/start`: lazy state creation, status transition.
 - Manual/claimed level: max L1, hollow badge, note required, never unlocks dependents.
 - Activity writer: review, level-up, minutes, XP; single transaction with state changes.
-- `domain/streak.ts`: local-day computation, streak update, one grace day per ISO week.
-- `domain/heatmap.ts`: 365-day series, XP buckets, zero-filled.
+- `packages/shared/src/domain/streak.ts`: local-day computation, streak update, one grace day per ISO week.
+- `packages/shared/src/domain/heatmap.ts`: 365-day series, XP buckets, zero-filled.
 - Nightly recompute job from `daily_activity`; drift repair.
 - `GET /api/progress/summary`; dashboard and `/progress`.
 - `ActivityHeatmap` (53×7, tooltip, table alternative), `DomainMasteryTable`, `StreakStrip`.
@@ -122,9 +128,9 @@ Each phase ships a working slice, proves it, and stops for approval. Acceptance 
 **Tasks**
 
 - Schema + migration: `ai_threads`, `ai_messages`, `ai_usage`.
-- `src/lib/ai/provider.ts`: model routing from env; embeddings; timeouts.
+- `apps/api/src/ai/provider.ts`: model routing from env; embeddings; timeouts.
 - Context assembly: system contract, concept card, ≤8 neighbor one-liners, user state, sources, last 10 turns, rolling summary.
-- `POST /api/ai/chat`: streaming, abort, persistence, `status: partial` on abort.
+- `POST /api/ai/chat`: SSE via Hono `streamSSE`; abort via `AbortController`; persistence; `status: partial` on abort.
 - Tools: `search_concepts`, `get_concept`, `get_neighbors`, `get_user_state`, `create_note`, `propose_review`; Zod-validated, auth-scoped.
 - Modes: Socratic (default), Explain, Quiz, Deep dive; assessment lock.
 - Citation validation against DB; strip invalid citations; log.
@@ -155,20 +161,20 @@ Each phase ships a working slice, proves it, and stops for approval. Acceptance 
 
 **Tasks**
 
-- `domain/mastery.ts`: transition table from `docs/DESIGN.md` §6; pure, clock-injected.
+- `packages/shared/src/domain/mastery.ts`: transition table from `docs/DESIGN.md` §6; pure, clock-injected.
 - Rubric prompts + structured output for explain/apply/connect/recall; Zod validation; one retry.
-- `submitAssessment`: idempotency key, serialized state update, grading, transition, activity, streak, next due — one transaction after grading.
+- `POST /api/assessments`: idempotency key, serialized state update, grading, transition, activity, streak, next due — one transaction after grading.
 - `ts-fsrs` wrapper; rating map; deterministic tests with fixed clock.
 - Daily queue: due reviews (≤25) + next curriculum item + one exploration.
 - Assessment drawer: prompt, answer editor (Markdown + LaTeX preview), rubric result, missing-elements feedback.
 - 7-day delayed retention flow; `fresh → retained`; lapse handling and level drop.
-- Dispute action + admin override with note.
+- Dispute endpoint + admin override with note.
 - Gold set: 50 labeled answers across levels and kinds.
 
 **Exit criteria**
 
 1. Grader agreement ≥85% with the 50-answer gold set (pass/fail), reported by kind.
-2. No path raises a level without a passing review: property test over all actions.
+2. No path raises a level without a passing review: property test over all API mutations.
 3. Self-report cannot exceed L1 or unlock dependents (test).
 4. Scheduler is deterministic: same state + same clock → same due date, across 100 cases.
 5. Duplicate submission returns the original score exactly once; state transitions once.
@@ -186,10 +192,10 @@ Each phase ships a working slice, proves it, and stops for approval. Acceptance 
 
 **Tasks**
 
-- `domain/planner.ts`: closure, filter, topological order with priority, week packing, estimates.
+- `packages/shared/src/domain/planner.ts`: closure, filter, topological order with priority, week packing, estimates.
 - Goal parser (AI, structured output) → validated target slugs; reject unknown; retry once.
 - Schema + migration: `curricula`, `curriculum_items`.
-- `generateCurriculum` action; plan preview; apply.
+- `POST /api/curricula`; plan preview; apply.
 - Regeneration: immutable completed items, recompute remainder, show diff.
 - Curriculum UI: timeline by week, minutes budget bar, item states, "start today".
 - Tests: 20 goal fixtures (ML, analysis, geometry, logic, etc.), DAG validity, budget tolerance.
@@ -217,12 +223,13 @@ Each phase ships a working slice, proves it, and stops for approval. Acceptance 
 - Notes/idea sparks: `notes` schema, concept-level capture, `/lab` list, filters, search.
 - Transfer hooks rendered as first-class cards with cross-domain links.
 - Export: JSON, Markdown, Anki CSV; deterministic, documented schema.
-- Public mastery card: `/u/[handle]` (opt-in) + OG image.
+- Public mastery card: `/u/$handle` (opt-in) + OG image.
 - Command palette (`Cmd/Ctrl+K`): search, jump, start review.
 - Accessibility pass: axe on 6 routes, keyboard-only flow, screen-reader labels for streaming and grades.
-- Performance pass: Lighthouse budgets, query plans, image/font optimization.
+- Performance pass: route-level lazy chunks, size-limit, query plans, image/font optimization.
 - PostHog events: the loop (orient, ask, prove, review), not surveillance.
 - Empty/error/loading states everywhere.
+- SPA polish: deep-link fallback, scroll restoration, prefetch on hover.
 
 **Exit criteria**
 

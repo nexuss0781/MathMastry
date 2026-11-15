@@ -23,22 +23,25 @@
 
 ## P1 — Scaffold `[ ]`
 
-- [ ] Initialize Next.js (App Router, `src/`, TypeScript strict, Tailwind v4)
-- [ ] TypeScript strict flags + path aliases
+- [ ] Initialize pnpm workspace: `apps/web`, `apps/api`, `packages/shared`
+- [ ] Vite + React + TypeScript strict + path aliases
+- [ ] TanStack Router + TanStack Query; lazy route chunks
 - [ ] ESLint + Prettier + import order; warnings fail CI
 - [ ] shadcn/ui init; commit used primitives
 - [ ] Design tokens + fonts (paper/ink/vermilion; Fraunces/Geist/Geist Mono)
-- [ ] Git init, `.gitignore`, first commit
+- [ ] Repo hygiene: `.gitignore`, README linking docs
 - [ ] Drizzle + Neon connection; `drizzle.config.ts`
-- [ ] Better Auth: email OTP + GitHub OAuth; auth route
+- [ ] Better Auth (Hono adapter): email OTP + GitHub OAuth
 - [ ] `profiles` table + migration; auto-create on first sign-in
+- [ ] Hono serves API + static SPA; Vite dev proxy; SPA fallback
 - [ ] App shell: landing placeholder, sign-in, authenticated layout, user menu
 - [ ] `GET /api/health` (app, db, ai configured)
-- [ ] `src/lib/env.ts` Zod validation, fail fast
+- [ ] Zod env validation at boot (API + web); no secrets in client bundle
 - [ ] Vitest + first unit test
 - [ ] Playwright + first smoke test
+- [ ] Dockerfile + single-origin production build
 - [ ] GitHub Actions CI (lint, typecheck, unit, build, smoke)
-- [ ] `.env.example` + README linking docs
+- [ ] `.env.example`
 - [ ] **Exit report + approval gate**
 
 ---
@@ -54,7 +57,7 @@
 - [ ] Embeddings + HNSW index + backfill
 - [ ] Edge builder: related, prerequisites, embeddings; SCC cycle removal; degree caps
 - [ ] Hybrid search (FTS + trigram + vector, RRF)
-- [ ] `/atlas`, `/atlas/[domain]`, `/concept/[slug]`
+- [ ] `/atlas`, `/atlas/$domain`, `/concept/$slug`
 - [ ] Map: SVG + d3-force, clustering, filters
 - [ ] Concept card sections + sources + relations
 - [ ] Coverage dashboard (pages/enriched/reviewed/embedded)
@@ -162,7 +165,7 @@
 | GitHub OAuth app (client id/secret) | P1 | not provided | email OTP only |
 | Resend API key (email OTP) | P1 | not provided | GitHub OAuth only |
 | AI provider key + model choice | P2/P4 | not provided | fixture server; seed-only cards |
-| Production domain | P8 | not provided | Vercel preview URL |
+| Production domain | P8 | not provided | Fly.io/Railway staging URL |
 | Analytics keys (PostHog, Sentry) | P7/P8 | not provided | console logging |
 
 **Rule:** a missing external dependency never blocks a phase. The fallback ships; the blocker is recorded here until cleared.
