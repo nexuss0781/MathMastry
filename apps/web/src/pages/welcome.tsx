@@ -1,7 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ArrowRight, Calendar, Clock, MapPin, User } from "lucide-react";
-import { authClient } from "@/lib/auth";
+import { ArrowRight, User } from "lucide-react";
 import { queryClient } from "@/lib/query";
 import { api } from "@/lib/api";
 import { useConfig } from "@/lib/queries";
@@ -9,7 +8,6 @@ import { Brand } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { Callout, ErrorState } from "@/components/page";
-import { cn } from "@/lib/utils";
 
 const TIMEZONES = Intl.supportedValuesOf("timeZone").sort();
 
@@ -33,7 +31,7 @@ export function WelcomePage() {
     }
     setPending(true);
     try {
-      const res = await api("/me", {
+      await api("/profile", {
         method: "PATCH",
         body: JSON.stringify({ displayName: displayName.trim(), timezone, weeklyMinutes }),
       });
@@ -52,7 +50,7 @@ export function WelcomePage() {
     setPending(true);
     try {
       if (goal.trim()) {
-        await api("/me", {
+        await api("/profile", {
           method: "PATCH",
           body: JSON.stringify({ goal: goal.trim() }),
         });

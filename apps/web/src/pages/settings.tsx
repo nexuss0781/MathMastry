@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { ArrowRight, Bell, Clock, Globe, Key, Loader2, Moon, Palette, Shield, Sparkles, Sun, Trash2, User } from "lucide-react";
+import { Clock, Globe, Loader2, Moon, Palette, Shield, Sparkles, Sun, User } from "lucide-react";
 import { PageHeader, SectionTitle, Callout, ErrorState } from "@/components/page";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
@@ -9,7 +9,7 @@ import { api } from "@/lib/api";
 import { invalidateEvidence } from "@/lib/actions";
 import { useConfig, useMe } from "@/lib/queries";
 import { useTheme } from "@/lib/theme";
-import { cn, formatRelative } from "@/lib/utils";
+import { formatRelative } from "@/lib/utils";
 import * as Sonner from "sonner";
 
 const TIMEZONES = Intl.supportedValuesOf("timeZone").sort();
@@ -21,14 +21,11 @@ export function SettingsPage() {
   const profile = me?.profile;
   const user = me?.user;
 
-  const [saving, setSaving] = useState<"profile" | "password" | "account" | null>(null);
+  const [saving, setSaving] = useState<"profile" | "account" | null>(null);
   const [displayName, setDisplayName] = useState(profile?.displayName ?? "");
   const [timezone, setTimezone] = useState(profile?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone);
   const [weeklyMinutes, setWeeklyMinutes] = useState(profile?.weeklyMinutes ?? 300);
   const [goal, setGoal] = useState(profile?.goal ?? "");
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   async function handleProfile(event: FormEvent) {
@@ -36,7 +33,7 @@ export function SettingsPage() {
     setError(null);
     setSaving("profile");
     try {
-      await api("/me", {
+      await api("/profile", {
         method: "PATCH",
         body: JSON.stringify({
           displayName: displayName.trim(),
@@ -49,31 +46,6 @@ export function SettingsPage() {
       invalidateEvidence();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not save profile.");
-    } finally {
-      setSaving(null);
-    }
-  }
-
-  async function handlePassword(event: FormEvent) {
-    event.preventDefault();
-    setError(null);
-    if (newPassword !== confirmPassword) {
-      setError("Passwords do not match.");
-      return;
-    }
-    if (newPassword.length < 10) {
-      setError("Use at least 10 characters.");
-      return;
-    }
-    setSaving("password");
-    try {
-      await authClient.changePassword({ currentPassword, newPassword });
-      Sonner.toast("Password changed.");
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not change password.");
     } finally {
       setSaving(null);
     }
@@ -140,25 +112,20 @@ export function SettingsPage() {
       </section>
 
       <section className="mb-10">
-        <SectionTitle eyebrow="Security" title="Password & sessions" icon={<Shield className="size-4" />} />
-        <form onSubmit={handlePassword} className="space-y-5 max-w-xl">
-          <div className="space-y-1.5">
-            <Label htmlFor="currentPassword">Current password</Label>
-            <Input id="currentPassword" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />
+        <SectionTitle eyebrow="Security" title="Sign-in & sessions" icon={<Shield className="size-4" />} />
+        <div className="max-w-xl rounded-[var(--radius-md)] border border-line bg-surface p-5">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="font-medium">Sign-in method</p>
+              <p className="text-sm text-muted">
+                Google account{user?.email ? ` · ${user.email}` : ""}. Passwords are never stored by MathMastery.
+              </p>
+            </div>
+            <Badge variant={user?.emailVerified ? "success" : "warning"}>
+              {user?.emailVerified ? "Google verified" : "Unverified"}
+            </Badge>
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="newPassword">New password</Label>
-            <Input id="newPassword" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} minLength={10} />
-            <p className="text-[10px] text-muted">Ten characters minimum. A passphrase is better than a puzzle.</p>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="confirmPassword">Confirm new password</Label>
-            <Input id="confirmPassword" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
-          </div>
-          <Button type="submit" disabled={saving === "password"}>
-            {saving === "password" ? <Loader2 className="size-3.5 animate-spin" /> : "Change password"}
-          </Button>
-        </form>
+        </div>
 
         <div className="mt-6 rounded-[var(--radius-md)] border border-dashed border-line p-4">
           <div className="flex items-center justify-between">
