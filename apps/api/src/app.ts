@@ -116,6 +116,9 @@ app.use("/assets/*", async (c, next) => {
 });
 app.use("/assets/*", serveStatic({ root: webDist }));
 app.use("/favicon.ico", serveStatic({ root: webDist }));
+app.use("/favicon.svg", serveStatic({ root: webDist }));
+app.use("/apple-touch-icon.png", serveStatic({ root: webDist }));
+app.use("/icon-512.png", serveStatic({ root: webDist }));
 
 /* ------------------------------------------------------------------ SEO */
 
