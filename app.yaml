@@ -1,0 +1,53 @@
+kind: wasmer.io/App.v0
+name: mathmastery
+app_id: da_RvJI4t0UAlJe
+owner: nexuss0781
+package: .
+locality:
+  regions:
+    - fr-roub1
+env:
+  NODE_ENV: production
+  PORT: "8787"
+  LOG_LEVEL: info
+  BETTER_AUTH_URL: https://mathmastery.wasmer.app
+  WEB_ORIGIN: https://mathmastery.wasmer.app
+  SITE_URL: https://mathmastery.wasmer.app
+  AUTH_PASSWORD_ENABLED: "true"
+  AI_PROVIDER: fixture
+  AI_ENABLED: "true"
+  AI_DAILY_MESSAGES: "40"
+  AI_DAILY_ASSESSMENTS: "15"
+capabilities:
+  database:
+    engine: postgres
+  instaboot:
+    mode: null
+    requests:
+      - path: /
+volumes:
+  - name: data
+    mount: /data
+annotations:
+  anybuild.run/config:
+    commands:
+      start: node apps/api/dist/index.js
+    edgejs_enable: true
+    edgejs_precompile: true
+    name: out
+    node_build_command: pnpm run build
+    node_install_inputs:
+      - package.json
+      - apps/api/package.json
+      - packages/shared/package.json
+      - apps/web/package.json
+    node_install_requires_all_files: true
+    node_package_manager: pnpm
+    node_package_name: mathmastery
+    node_remove_native_binaries: true
+    node_server: node
+    pnpm_version: 9.15.4
+  anybuild.run/provider: node
+  anybuild.run/version: 0.33.3
+  wasmer.io/version: 7.5.0
+enableDatabase: true

@@ -79,7 +79,7 @@ export interface ReviewsResponse {
   }>;
 }
 
-function query<T>(
+function useApiQuery<T>(
   key: readonly unknown[],
   fn: () => Promise<T>,
   options?: Omit<UseQueryOptions<T, Error, T, readonly unknown[]>, "queryKey" | "queryFn">,
@@ -88,84 +88,84 @@ function query<T>(
 }
 
 export function useMe() {
-  return query(qk.me, () => api<MeResponse>("/me"));
+  return useApiQuery(qk.me, () => api<MeResponse>("/me"));
 }
 
 export function useConfig() {
-  return query(qk.config, () => api<AppConfig>("/config"), { staleTime: 5 * 60_000 });
+  return useApiQuery(qk.config, () => api<AppConfig>("/config"), { staleTime: 5 * 60_000 });
 }
 
 export function usePublicAtlas() {
-  return query(qk.publicAtlas, () => api<PublicAtlas>("/public/atlas"), { staleTime: 5 * 60_000 });
+  return useApiQuery(qk.publicAtlas, () => api<PublicAtlas>("/public/atlas"), { staleTime: 5 * 60_000 });
 }
 
 export function useDomains() {
-  return query(qk.domains, () => api<DomainListResponse>("/domains"));
+  return useApiQuery(qk.domains, () => api<DomainListResponse>("/domains"));
 }
 
 export function useConcepts() {
-  return query(qk.concepts, () => api<ConceptListResponse>("/concepts?limit=500"), {
+  return useApiQuery(qk.concepts, () => api<ConceptListResponse>("/concepts?limit=500"), {
     staleTime: 60_000,
   });
 }
 
 export function useConcept(slug: string) {
-  return query(qk.concept(slug), () => api<ConceptDetail>(`/concepts/${slug}`), {
+  return useApiQuery(qk.concept(slug), () => api<ConceptDetail>(`/concepts/${slug}`), {
     enabled: Boolean(slug),
   });
 }
 
 export function useSearch(search: string, enabled: boolean) {
-  return query(qk.search(search), () => api<{ items: SearchItem[] }>(`/search?q=${encodeURIComponent(search)}`), {
+  return useApiQuery(qk.search(search), () => api<{ items: SearchItem[] }>(`/search?q=${encodeURIComponent(search)}`), {
     enabled: enabled && search.trim().length >= 2,
     staleTime: 30_000,
   });
 }
 
 export function useGraph(enabled = true) {
-  return query(qk.graph, () => api<GraphData>("/graph"), { enabled, staleTime: 60_000 });
+  return useApiQuery(qk.graph, () => api<GraphData>("/graph"), { enabled, staleTime: 60_000 });
 }
 
 export function useQueue() {
-  return query(qk.queue, () => api<QueueResponse>("/review/queue"), { staleTime: 15_000 });
+  return useApiQuery(qk.queue, () => api<QueueResponse>("/review/queue"), { staleTime: 15_000 });
 }
 
 export function useSummary() {
-  return query(qk.summary, () => api<Summary>("/progress/summary"), { staleTime: 15_000 });
+  return useApiQuery(qk.summary, () => api<Summary>("/progress/summary"), { staleTime: 15_000 });
 }
 
 export function useHeatmap(weeks = 53) {
-  return query(qk.heatmap(weeks), () => api<HeatmapResponse>(`/progress/heatmap?weeks=${weeks}`), {
+  return useApiQuery(qk.heatmap(weeks), () => api<HeatmapResponse>(`/progress/heatmap?weeks=${weeks}`), {
     staleTime: 60_000,
   });
 }
 
 export function useReviews() {
-  return query(qk.reviews, () => api<ReviewsResponse>("/progress/reviews?limit=25"), {
+  return useApiQuery(qk.reviews, () => api<ReviewsResponse>("/progress/reviews?limit=25"), {
     staleTime: 30_000,
   });
 }
 
 export function useCurricula() {
-  return query(qk.curricula, () => api<{ curricula: CurriculumListItem[] }>("/curricula"), {
+  return useApiQuery(qk.curricula, () => api<{ curricula: CurriculumListItem[] }>("/curricula"), {
     staleTime: 30_000,
   });
 }
 
 export function useCurriculum(id: string) {
-  return query(qk.curriculum(id), () => api<{ curriculum: CurriculumDetail }>(`/curricula/${id}`), {
+  return useApiQuery(qk.curriculum(id), () => api<{ curriculum: CurriculumDetail }>(`/curricula/${id}`), {
     enabled: Boolean(id),
   });
 }
 
 export function useActiveCurriculum() {
-  return query(["curriculum", "active"] as const, () =>
+  return useApiQuery(["curriculum", "active"] as const, () =>
     api<{ curriculum: CurriculumDetail | null }>("/curricula/active"),
   );
 }
 
 export function useNextCurriculum() {
-  return query(["curriculum", "next"] as const, () =>
+  return useApiQuery(["curriculum", "next"] as const, () =>
     api<{
       curriculum: { id: string; title: string; progress: number };
       items: CurriculumItem[];
@@ -174,19 +174,19 @@ export function useNextCurriculum() {
 }
 
 export function useThreads() {
-  return query(qk.threads, () => api<{ threads: ThreadSummary[] }>("/tutor/threads"), {
+  return useApiQuery(qk.threads, () => api<{ threads: ThreadSummary[] }>("/tutor/threads"), {
     staleTime: 15_000,
   });
 }
 
 export function useThread(id: string) {
-  return query(qk.thread(id), () => api<{ thread: ThreadDetail }>(`/tutor/threads/${id}`), {
+  return useApiQuery(qk.thread(id), () => api<{ thread: ThreadDetail }>(`/tutor/threads/${id}`), {
     enabled: Boolean(id),
   });
 }
 
 export function useUsage() {
-  return query(qk.usage, () => api<UsageResponse>("/usage"), { staleTime: 30_000 });
+  return useApiQuery(qk.usage, () => api<UsageResponse>("/usage"), { staleTime: 30_000 });
 }
 
 export { invalidateEvidence, invalidateNotes } from "./actions";

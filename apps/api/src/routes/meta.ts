@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
+import { timingSafeEqual } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { profileUpdateSchema } from "@mm/shared";
 import type { AppEnv } from "../types.js";
@@ -10,8 +11,15 @@ import { aiMode } from "../ai/index.js";
 import { currentProfile, currentUser, parseBody } from "./helpers.js";
 import { latestDevOtp } from "../auth.js";
 import { getContent } from "../services/content.js";
+import { ensureDatabase } from "../services/bootstrap.js";
 
 export const metaRoutes = new Hono<AppEnv>();
+
+function secretMatches(provided: string, expected: string): boolean {
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
 
 metaRoutes.get("/health", async (c) => {
   const started = Date.now();
@@ -31,6 +39,19 @@ metaRoutes.get("/health", async (c) => {
   });
 });
 
+/**
+ * Operational endpoint for first boot or disaster recovery on a managed
+ * database. Guarded by CRON_SECRET; idempotent by design.
+ */
+metaRoutes.post("/admin/bootstrap", async (c) => {
+  const provided = c.req.header("x-cron-secret") ?? "";
+  if (!secretMatches(provided, env.CRON_SECRET)) {
+    return c.json({ error: "unauthorized" }, 401);
+  }
+  const result = await ensureDatabase();
+  return c.json(result);
+});
+
 metaRoutes.get("/config", (c) =>
   c.json({
     appName: "MathMastery",
@@ -45,8 +66,6 @@ metaRoutes.get("/config", (c) =>
     domains: 12,
   }),
 );
-
-metaRoutes.get("/test-meta", (c) => c.json({ ok: true, from: "metaRoutes" }));
 
 /**
  * Public atlas summary for the landing page. No learner data, no auth: just

@@ -36,7 +36,7 @@ export function applyAssessment(state: MasteryState, outcome: AssessmentOutcome)
   let levelUp = false;
   let levelDown = false;
   let retained = false;
-  let reason = "";
+  let reason: string;
 
   if (outcome.kind === "recall") {
     if (outcome.passed) {

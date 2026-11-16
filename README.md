@@ -226,22 +226,38 @@ Default `AI_PROVIDER=fixture` uses deterministic heuristic grader (confidence 0.
 
 ## Deployment
 
+### Wasmer Edge (live)
+
+**Live app:** https://mathmastery.wasmer.app
+
+The whole stack (SPA + Hono API + managed Postgres) runs as one Wasmer Edge app in `fr-roub1`:
+
+```bash
+wasmer deploy --owner nexuss0781 --app-name mathmastery --build-remote
+```
+
+- `app.yaml` declares the Node build, managed Postgres capability, and runtime env.
+- Secrets: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `CRON_SECRET`. Wasmer also injects
+  `DB_HOST` / `DB_PORT` / `DB_NAME` / `DB_USERNAME` / `DB_PASSWORD`; the API composes a
+  TLS `DATABASE_URL` from those when the explicit secret is absent.
+- `pnpm build` bundles every API dependency into `apps/api/dist/index.js`, then copies the
+  SPA build and `content/concepts.seed.json` beside it. The Edge runtime therefore needs no
+  `node_modules`.
+- On first boot the API creates its schema and, when the atlas is missing or incomplete,
+  ingests all 429 concepts idempotently. The same operation is available as
+  `POST /api/admin/bootstrap` with header `x-cron-secret: $CRON_SECRET`.
+- Health check: `GET /api/health`.
+
 ### Local Production Build
 ```bash
 pnpm build
 pnpm start
 ```
 
-### Docker (planned)
-```dockerfile
-# Multi-stage build: build web + api, serve via Hono SPA shell
-```
-
-### Fly.io / Railway / Render
-- Set environment variables
-- Attach PostgreSQL
-- Run migrations on deploy
-- Health check: `/api/health`
+### Other hosts
+- Set environment variables (`DATABASE_URL`, `BETTER_AUTH_SECRET`, `SITE_URL`, ...).
+- Attach PostgreSQL and run `pnpm db:migrate` (or let the API bootstrap a fresh database).
+- Health check: `/api/health`.
 
 ## Project Structure
 
@@ -297,9 +313,9 @@ mathmastery/
 
 ## Known Issues
 
-- **API `/public/atlas` returns 404** — Route registered in metaRoutes but not matching. Health, config, auth endpoints work. Workaround: landing page uses fallback data.
 - **Fixture mode grading** — Deterministic heuristic, not model-based. Disclosed in UI.
 - **No pgvector** — Embeddings stored as `real[]`, cosine computed in-app (brute force).
+- **No email provider** — Password + OTP sign-up needs `RESEND_API_KEY` in production; GitHub OAuth is hidden until its client credentials are configured.
 
 ## License
 

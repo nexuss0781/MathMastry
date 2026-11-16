@@ -9,8 +9,8 @@
   },
   "scripts": {
     "dev": "concurrently -n api,web -c blue,magenta \"pnpm --filter @mm/api dev\" \"pnpm --filter @mm/web dev\"",
-    "build": "pnpm --filter @mm/web build && pnpm --filter @mm/api build",
-    "start": "pnpm --filter @mm/api start",
+    "build": "pnpm --filter @mm/shared build && pnpm --filter @mm/web build && pnpm --filter @mm/api build",
+    "start": "node apps/api/dist/index.js",
     "lint": "eslint .",
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm -r --if-present test",
@@ -27,6 +27,7 @@
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.65.1",
     "@types/node": "^26.6.6",
+    "@typescript/typescript6": "^6.0.2",
     "concurrently": "^10.0.7",
     "eslint": "^10.15.0",
     "eslint-plugin-react-hooks": "^7.1.1",
@@ -34,7 +35,7 @@
     "globals": "^17.14.0",
     "prettier": "^3.10.1",
     "tsx": "^4.23.15",
-    "typescript": "^7.0.2",
+    "typescript": "6.0.2",
     "typescript-eslint": "^8.72.2",
     "vitest": "^5.1.0"
   }

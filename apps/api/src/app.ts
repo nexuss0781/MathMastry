@@ -1,5 +1,6 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
@@ -17,8 +18,15 @@ import { curriculumRoutes } from "./routes/curriculum.js";
 import { tutorRoutes } from "./routes/tutor.js";
 import { getContent } from "./services/content.js";
 
-const webDist = fileURLToPath(new URL("../../web/dist", import.meta.url));
-const indexPath = fileURLToPath(new URL("../../web/dist/index.html", import.meta.url));
+// Prefer the assets copied next to the API bundle (apps/api/dist/public);
+// fall back to the workspace web build for `tsx src/index.ts` development.
+const webDist =
+  [
+    fileURLToPath(new URL("./public", import.meta.url)),
+    fileURLToPath(new URL("../../web/dist", import.meta.url)),
+  ].find((candidate) => existsSync(join(candidate, "index.html"))) ??
+  fileURLToPath(new URL("../../web/dist", import.meta.url));
+const indexPath = join(webDist, "index.html");
 
 export const app = new Hono<AppEnv>();
 
@@ -97,6 +105,17 @@ app.route("/api/curricula", curriculumRoutes);
 app.route("/api/tutor", tutorRoutes);
 
 app.all("/api/*", (c) => c.json({ error: "not_found", message: "No such API route." }, 404));
+
+/* ------------------------------------------------------------ static SPA */
+
+app.use("/assets/*", async (c, next) => {
+  await next();
+  if (c.res.status === 200) {
+    c.header("cache-control", "public, max-age=31536000, immutable");
+  }
+});
+app.use("/assets/*", serveStatic({ root: webDist }));
+app.use("/favicon.ico", serveStatic({ root: webDist }));
 
 /* ------------------------------------------------------------------ SEO */
 
@@ -213,13 +232,90 @@ async function metaForPath(path: string): Promise<ShellMeta> {
   return defaults;
 }
 
-app.get("/*", async (c, next) => {
-  const accept = c.req.header("accept") ?? "";
-  const isBot = /bot|crawler|spider|facebook|twitter|slack|discord|telegram|whatsapp/i.test(c.req.header("user-agent") ?? "");
-  const wantsHtml = accept.includes("text/html") && !c.req.path.startsWith("/api/") && !c.req.path.startsWith("/_");
+// Explicit frontend routes only - no catch-all to avoid intercepting API routes
+const frontendRoutes = [
+  "/",
+  "/atlas",
+  "/atlas/",
+  "/progress",
+  "/review",
+  "/curriculum",
+  "/tutor",
+  "/login",
+  "/signup",
+  "/welcome",
+  "/settings",
+  "/concepts",
+];
 
-  if (!wantsHtml && !isBot) return next();
+// Match exact routes and prefix routes for dynamic segments
+const frontendRoutePatterns = [
+  ...frontendRoutes,
+  ...frontendRoutes.map((r) => (r === "/" ? "/" : `${r}/*`)),
+];
 
+for (const pattern of frontendRoutePatterns) {
+  app.get(pattern, async (c) => {
+    const path = c.req.path;
+    const meta = await metaForPath(path);
+
+    const html = readFileSync(indexPath, "utf-8")
+      .replace("{{TITLE}}", escapeHtml(meta.title))
+      .replace("{{DESCRIPTION}}", escapeHtml(meta.description))
+      .replace("{{CANONICAL}}", escapeHtml(meta.canonical))
+      .replace("{{NOSCRIPT}}", meta.noscript)
+      .replace(/{{JSON_LD}}/g, meta.jsonLd ? `<script type="application/ld+json">${JSON.stringify(meta.jsonLd)}</script>` : "")
+      .replace(/<div id="root"><\/div>/, (match) => {
+        const noscript = meta.noscript ? "<noscript>" + meta.noscript + "</noscript>" : "";
+        return "<div id=\"root\"></div>" + noscript;
+      });
+
+    c.header("content-type", "text/html; charset=utf-8");
+    return c.html(html);
+  });
+}
+
+// Also handle dynamic concept and atlas domain routes
+app.get("/concepts/:slug*", async (c) => {
+  const path = c.req.path;
+  const meta = await metaForPath(path);
+
+  const html = readFileSync(indexPath, "utf-8")
+    .replace("{{TITLE}}", escapeHtml(meta.title))
+    .replace("{{DESCRIPTION}}", escapeHtml(meta.description))
+    .replace("{{CANONICAL}}", escapeHtml(meta.canonical))
+    .replace("{{NOSCRIPT}}", meta.noscript)
+    .replace(/{{JSON_LD}}/g, meta.jsonLd ? `<script type="application/ld+json">${JSON.stringify(meta.jsonLd)}</script>` : "")
+    .replace(/<div id="root"><\/div>/, (match) => {
+      const noscript = meta.noscript ? "<noscript>" + meta.noscript + "</noscript>" : "";
+      return "<div id=\"root\"></div>" + noscript;
+    });
+
+  c.header("content-type", "text/html; charset=utf-8");
+  return c.html(html);
+});
+
+app.get("/atlas/:domain*", async (c) => {
+  const path = c.req.path;
+  const meta = await metaForPath(path);
+
+  const html = readFileSync(indexPath, "utf-8")
+    .replace("{{TITLE}}", escapeHtml(meta.title))
+    .replace("{{DESCRIPTION}}", escapeHtml(meta.description))
+    .replace("{{CANONICAL}}", escapeHtml(meta.canonical))
+    .replace("{{NOSCRIPT}}", meta.noscript)
+    .replace(/{{JSON_LD}}/g, meta.jsonLd ? `<script type="application/ld+json">${JSON.stringify(meta.jsonLd)}</script>` : "")
+    .replace(/<div id="root"><\/div>/, (match) => {
+      const noscript = meta.noscript ? "<noscript>" + meta.noscript + "</noscript>" : "";
+      return "<div id=\"root\"></div>" + noscript;
+    });
+
+  c.header("content-type", "text/html; charset=utf-8");
+  return c.html(html);
+});
+
+// Fallback for any other HTML requests (bots, direct navigation)
+app.get("/*", async (c) => {
   const path = c.req.path;
   const meta = await metaForPath(path);
 

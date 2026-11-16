@@ -2,7 +2,7 @@
 import { db } from "./db/index.js";
 import { user as userTable, profiles, userStreaks, account } from "./db/schema.js";
 import { eq } from "drizzle-orm";
-import { hash } from "@node-rs/argon2";
+import { hashPassword } from "better-auth/crypto";
 import { randomUUID } from "node:crypto";
 
 const DEMO_EMAIL = "demo@mathmastery.local";
@@ -20,7 +20,7 @@ async function main() {
   }
 
   const userId = randomUUID();
-  const passwordHash = await hash(DEMO_PASSWORD);
+  const passwordHash = await hashPassword(DEMO_PASSWORD);
 
   // Create user
   await db.insert(userTable).values({

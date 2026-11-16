@@ -6,13 +6,29 @@ const booleanEnv = (defaultValue: "true" | "false") =>
     .default(defaultValue)
     .transform((value) => value === "true");
 
+/**
+ * Wasmer injects DB_HOST/DB_PORT/DB_NAME/DB_USERNAME/DB_PASSWORD for the
+ * managed Postgres capability but does not provide DATABASE_URL. Compose it
+ * when the explicit URL is absent so the same build works everywhere.
+ */
+function databaseUrlFromParts(): string | undefined {
+  const { DB_HOST, DB_PORT, DB_NAME, DB_USERNAME, DB_PASSWORD } = process.env;
+  if (!DB_HOST || !DB_NAME || !DB_USERNAME) return undefined;
+  const user = encodeURIComponent(DB_USERNAME);
+  const password = encodeURIComponent(DB_PASSWORD ?? "");
+  const port = DB_PORT ?? "5432";
+  return `postgresql://${user}:${password}@${DB_HOST}:${port}/${DB_NAME}?sslmode=require`;
+}
+
+const databaseUrl =
+  process.env.DATABASE_URL?.trim() ||
+  databaseUrlFromParts() ||
+  "postgresql://postgres@127.0.0.1:55432/mathmastery";
+
 const schema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().min(1).max(65535).default(8787),
-  DATABASE_URL: z
-    .string()
-    .min(1)
-    .default("postgresql://postgres@127.0.0.1:55432/mathmastery"),
+  DATABASE_URL: z.string().min(1).default(databaseUrl),
   BETTER_AUTH_SECRET: z.string().min(32).default("dev-secret-change-me-0123456789abcdef"),
   BETTER_AUTH_URL: z.string().url().default("http://localhost:8787"),
   WEB_ORIGIN: z.string().url().default("http://localhost:5173"),
@@ -35,7 +51,7 @@ const schema = z.object({
 
 export type Env = z.infer<typeof schema>;
 
-export const env: Env = schema.parse(process.env);
+export const env: Env = schema.parse({ ...process.env, DATABASE_URL: databaseUrl });
 
 export const githubEnabled = Boolean(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET);
 export const aiConfigured = env.AI_PROVIDER === "openai" && Boolean(env.OPENAI_API_KEY);
