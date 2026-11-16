@@ -1,29 +1,16 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { emailOTP } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
 import { db } from "./db/index.js";
 import * as schema from "./db/schema.js";
-import { env, githubEnabled } from "./env.js";
+import { env, googleEnabled } from "./env.js";
 import { logger } from "./logger.js";
 
-/**
- * Dev-only OTP capture. Email delivery is unconfigured in this environment, so
- * the code is logged and exposed to the local UI through a guarded endpoint.
- * Never populated, never exposed when NODE_ENV=production.
- */
-const devOtpLog = new Map<string, { otp: string; at: string; type: string }>();
-
-export function latestDevOtp(email: string): { otp: string; at: string; type: string } | null {
-  if (env.NODE_ENV === "production") return null;
-  return devOtpLog.get(email.toLowerCase()) ?? null;
-}
-
-const socialProviders = githubEnabled
+const socialProviders = googleEnabled
   ? {
-      github: {
-        clientId: env.GITHUB_CLIENT_ID as string,
-        clientSecret: env.GITHUB_CLIENT_SECRET as string,
+      google: {
+        clientId: env.GOOGLE_CLIENT_ID as string,
+        clientSecret: env.GOOGLE_CLIENT_SECRET as string,
       },
     }
   : {};
@@ -43,35 +30,13 @@ export const auth = betterAuth({
       verification: schema.verification,
     },
   }),
-  emailAndPassword: {
-    enabled: env.AUTH_PASSWORD_ENABLED,
-    minPasswordLength: 10,
-    autoSignIn: true,
-  },
   socialProviders,
   account: {
     accountLinking: {
       enabled: true,
-      trustedProviders: githubEnabled ? ["github"] : [],
+      trustedProviders: googleEnabled ? ["google"] : [],
     },
   },
-  plugins: [
-    emailOTP({
-      otpLength: 6,
-      expiresIn: 300,
-      allowedAttempts: 5,
-      async sendVerificationOTP({ email, otp, type }) {
-        devOtpLog.set(email.toLowerCase(), { otp, at: new Date().toISOString(), type });
-        if (env.NODE_ENV === "production") {
-          // A real provider (Resend) is documented in docs/DESIGN.md §7. Failing
-          // loudly beats silently accepting sign-ups that can never verify.
-          throw new Error("Email delivery is not configured.");
-        }
-        logger.warn({ email, type }, "DEV EMAIL OTP (email delivery not configured)");
-        logger.warn({ otp }, "Use this code to sign in");
-      },
-    }),
-  ],
   session: {
     expiresIn: 60 * 60 * 24 * 30,
     updateAge: 60 * 60 * 24,

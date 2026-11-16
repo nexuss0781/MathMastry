@@ -80,7 +80,7 @@ const authenticatedRoute = createRoute({
       emailVerified: u.emailVerified,
       createdAt: u.createdAt instanceof Date ? u.createdAt.toISOString() : String(u.createdAt),
     };
-    return <AppShell me={{ user, profile: null, capabilities: { github: false, aiMode: "fixture" as const, devAuth: true } }}><Outlet /></AppShell>;
+    return <AppShell me={{ user, profile: null, capabilities: { google: true, aiMode: "fixture" as const } }}><Outlet /></AppShell>;
   },
 });
 

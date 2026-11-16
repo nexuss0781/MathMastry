@@ -42,13 +42,11 @@ export const qk = {
 
 export interface AppConfig {
   appName: string;
-  githubEnabled: boolean;
-  passwordEnabled: boolean;
+  googleEnabled: boolean;
   aiMode: "fixture" | "openai";
   aiEnabled: boolean;
   dailyMessages: number;
   dailyAssessments: number;
-  devAuth: boolean;
   totalConcepts: number;
   domains: number;
 }

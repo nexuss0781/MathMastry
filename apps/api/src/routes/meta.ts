@@ -6,10 +6,9 @@ import { profileUpdateSchema } from "@mm/shared";
 import type { AppEnv } from "../types.js";
 import { db } from "../db/index.js";
 import { profiles, user as userTable } from "../db/schema.js";
-import { env, githubEnabled } from "../env.js";
+import { env, googleEnabled } from "../env.js";
 import { aiMode } from "../ai/index.js";
 import { currentProfile, currentUser, parseBody } from "./helpers.js";
-import { latestDevOtp } from "../auth.js";
 import { getContent } from "../services/content.js";
 import { ensureDatabase } from "../services/bootstrap.js";
 
@@ -55,13 +54,11 @@ metaRoutes.post("/admin/bootstrap", async (c) => {
 metaRoutes.get("/config", (c) =>
   c.json({
     appName: "MathMastery",
-    githubEnabled,
-    passwordEnabled: env.AUTH_PASSWORD_ENABLED,
+    googleEnabled,
     aiMode,
     aiEnabled: env.AI_ENABLED,
     dailyMessages: env.AI_DAILY_MESSAGES,
     dailyAssessments: env.AI_DAILY_ASSESSMENTS,
-    devAuth: env.NODE_ENV !== "production",
     totalConcepts: 429,
     domains: 12,
   }),
@@ -107,15 +104,6 @@ metaRoutes.get("/public/atlas", async (c) => {
   });
 });
 
-if (env.NODE_ENV !== "production") {
-  metaRoutes.get("/dev/otp", (c) => {
-    const email = c.req.query("email");
-    if (!email) return c.json({ error: "email_required" }, 400);
-    const otp = latestDevOtp(email);
-    return c.json({ otp: otp?.otp ?? null, at: otp?.at ?? null, type: otp?.type ?? null });
-  });
-}
-
 metaRoutes.get("/me", (c) => {
   const user = c.get("user");
   const profile = c.get("profile");
@@ -130,7 +118,7 @@ metaRoutes.get("/me", (c) => {
       role: profile.role,
       onboardedAt: profile.onboardedAt?.toISOString() ?? null,
     },
-    capabilities: { github: githubEnabled, aiMode, devAuth: env.NODE_ENV !== "production" },
+    capabilities: { google: googleEnabled, aiMode },
   });
 });
 

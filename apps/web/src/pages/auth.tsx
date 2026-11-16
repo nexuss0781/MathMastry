@@ -1,19 +1,38 @@
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Link, useSearch } from "@tanstack/react-router";
-import { ArrowRight, GitBranch, KeyRound, Mail, ShieldCheck } from "lucide-react";
+import { KeyRound, ShieldCheck } from "lucide-react";
 import { authClient } from "@/lib/auth";
-import { api } from "@/lib/api";
-import { queryClient } from "@/lib/query";
 import { useConfig } from "@/lib/queries";
 import { Brand } from "@/components/brand";
 import { Button } from "@/components/ui/button";
-import { Input, Label } from "@/components/ui/input";
 import { Callout } from "@/components/page";
-import { cn } from "@/lib/utils";
 
 function safeRedirect(value: string | undefined): string {
   if (!value || !value.startsWith("/") || value.startsWith("//")) return "/dashboard";
   return value;
+}
+
+function GoogleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="#4285F4"
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1Z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.15-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23Z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.84 14.09A6.97 6.97 0 0 1 5.47 12c0-.73.13-1.44.37-2.09V7.07H2.18A11 11 0 0 0 1 12c0 1.78.43 3.46 1.18 4.93l3.66-2.84Z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 5.38c1.62 0 3.06.56 4.2 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38Z"
+      />
+    </svg>
+  );
 }
 
 function AuthFrame({ children }: { children: ReactNode }) {
@@ -75,284 +94,32 @@ function AuthFrame({ children }: { children: ReactNode }) {
   );
 }
 
-function GitHubButton({ callbackURL }: { callbackURL: string }) {
-  const { data: config } = useConfig();
-  if (!config?.githubEnabled) return null;
-  return (
-    <Button
-      type="button"
-      variant="outline"
-      className="w-full"
-      onClick={() => void authClient.signIn.social({ provider: "github", callbackURL })}
-    >
-      <GitBranch className="size-4" />
-      Continue with GitHub
-    </Button>
-  );
-}
-
-export function LoginPage() {
-  const search = useSearch({ strict: false }) as { redirect?: string };
-  const { data: config } = useConfig();
-  const [mode, setMode] = useState<"password" | "otp">("password");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [otp, setOtp] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
-  const [devOtp, setDevOtp] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState<"password" | "otp" | "send" | null>(null);
-  const target = safeRedirect(search.redirect);
-  const [sentTo, setSentTo] = useState("");
-
-  async function afterAuth() {
-    await queryClient.invalidateQueries();
-    window.location.assign(target);
-  }
-
-  async function handlePassword(event: FormEvent) {
-    event.preventDefault();
-    setError(null);
-    setPending("password");
-    try {
-      const result = await authClient.signIn.email({ email: email.trim(), password });
-      if (result.error) {
-        setError(result.error.message ?? "Could not sign in.");
-        return;
-      }
-      await afterAuth();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not sign in.");
-    } finally {
-      setPending(null);
-    }
-  }
-
-  async function sendOtp(event?: FormEvent) {
-    event?.preventDefault();
-    setError(null);
-    if (!email.trim()) {
-      setError("Enter your email address first.");
-      return;
-    }
-    setPending("send");
-    try {
-      const result = await authClient.emailOtp.sendVerificationOtp({ email: email.trim(), type: "sign-in" });
-      if (result.error) {
-        setError(result.error.message ?? "Could not send the code.");
-        return;
-      }
-      setOtpSent(true);
-      setSentTo(email.trim());
-      setDevOtp(null);
-      if (config?.devAuth) {
-        try {
-          const local = await api<{ otp: string | null }>(`/dev/otp?email=${encodeURIComponent(email.trim())}`);
-          setDevOtp(local.otp);
-        } catch {
-          /* the code is still in the server log */
-        }
-      }
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not send the code.");
-    } finally {
-      setPending(null);
-    }
-  }
-
-  async function handleOtp(event: FormEvent) {
-    event.preventDefault();
-    setError(null);
-    setPending("otp");
-    try {
-      const result = await authClient.signIn.emailOtp({ email: email.trim(), otp: otp.trim() });
-      if (result.error) {
-        setError(result.error.message ?? "That code was not accepted.");
-        return;
-      }
-      await afterAuth();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not verify the code.");
-    } finally {
-      setPending(null);
-    }
-  }
-
-  return (
-    <AuthFrame>
-      <div>
-        <p className="eyebrow">Welcome back</p>
-        <h1 className="mt-2 text-3xl">Sign in to your record.</h1>
-        <p className="mt-2 text-sm leading-relaxed text-muted">
-          Levels, retention, curriculum, and tutor threads are tied to your account.
-        </p>
-      </div>
-
-      <div className="mt-6 grid grid-cols-2 rounded-[var(--radius-sm)] border border-line p-1">
-        {(["password", "otp"] as const).map((option) => (
-          <button
-            key={option}
-            type="button"
-            onClick={() => {
-              setMode(option);
-              setError(null);
-            }}
-            className={cn(
-              "rounded-[5px] px-3 py-1.5 text-xs transition-colors",
-              mode === option ? "bg-ink text-paper" : "text-muted hover:text-ink",
-            )}
-          >
-            {option === "password" ? "Password" : "Email code"}
-          </button>
-        ))}
-      </div>
-
-      {error ? (
-        <p className="mt-4 rounded-[var(--radius-sm)] border border-danger/30 bg-danger/5 px-3 py-2 text-xs text-danger" role="alert">
-          {error}
-        </p>
-      ) : null}
-
-      {mode === "password" ? (
-        <form className="mt-5 space-y-3" onSubmit={handlePassword}>
-          <div className="space-y-1.5">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="you@example.com"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="••••••••••"
-            />
-          </div>
-          <Button type="submit" className="w-full" disabled={pending === "password"}>
-            {pending === "password" ? "Signing in…" : "Sign in"}
-            <ArrowRight className="size-4" />
-          </Button>
-        </form>
-      ) : (
-        <form className="mt-5 space-y-3" onSubmit={otpSent ? handleOtp : sendOtp}>
-          <div className="space-y-1.5">
-            <Label htmlFor="otp-email">Email</Label>
-            <Input
-              id="otp-email"
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="you@example.com"
-            />
-          </div>
-
-          {otpSent ? (
-            <>
-              <div className="space-y-1.5">
-                <Label htmlFor="otp">Six-digit code</Label>
-                <Input
-                  id="otp"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  maxLength={6}
-                  required
-                  value={otp}
-                  onChange={(event) => setOtp(event.target.value.replace(/\D/g, ""))}
-                  placeholder="000000"
-                  className="font-mono text-lg tracking-[0.3em]"
-                />
-              </div>
-              {devOtp ? (
-                <Callout tone="warning" title="Local development">
-                  Email delivery is not configured, so the code is shown here and in the server log.{" "}
-                  <strong className="font-mono">{devOtp}</strong> — sent to {sentTo}.
-                </Callout>
-              ) : (
-                <p className="text-[11px] text-muted">
-                  Code sent to {sentTo}. In local development it is also written to the API log.
-                </p>
-              )}
-              <Button type="submit" className="w-full" disabled={pending === "otp" || otp.length < 6}>
-                {pending === "otp" ? "Verifying…" : "Verify and sign in"}
-                <ArrowRight className="size-4" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                className="w-full"
-                onClick={() => void sendOtp()}
-                disabled={pending === "send"}
-              >
-                <Mail className="size-3.5" />
-                {pending === "send" ? "Sending…" : "Send a new code"}
-              </Button>
-            </>
-          ) : (
-            <Button type="submit" className="w-full" disabled={pending === "send"}>
-              <Mail className="size-4" />
-              {pending === "send" ? "Sending…" : "Email me a sign-in code"}
-            </Button>
-          )}
-        </form>
-      )}
-
-      <div className="my-5 flex items-center gap-3">
-        <span className="h-px flex-1 bg-line" />
-        <span className="font-mono text-[9px] uppercase tracking-wider text-muted">or</span>
-        <span className="h-px flex-1 bg-line" />
-      </div>
-      <GitHubButton callbackURL={`${typeof window !== "undefined" ? window.location.origin : ""}${target}`} />
-
-      <p className="mt-6 text-center text-xs text-muted">
-        New here?{" "}
-        <Link to="/signup" className="text-accent underline underline-offset-4">
-          Create an account
-        </Link>
-      </p>
-    </AuthFrame>
-  );
-}
-
-export function SignupPage() {
-  const { data: config } = useConfig();
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+function GoogleAuth({ mode }: { mode: "login" | "signup" }) {
+  const { data: config, isLoading } = useConfig();
+  const search = useSearch({ strict: false }) as { redirect?: string; error?: string };
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault();
+  const isSignup = mode === "signup";
+  const target = isSignup ? "/welcome" : safeRedirect(search.redirect);
+  const callbackURL = `${window.location.origin}${target}`;
+  const configured = config?.googleEnabled === true;
+  const visibleError =
+    error ??
+    (search.error ? "Google sign-in could not be completed. Please try again." : null);
+
+  async function handleGoogle() {
     setError(null);
-    if (password.length < 10) {
-      setError("Use at least 10 characters. Length beats clever substitutions.");
-      return;
-    }
     setPending(true);
     try {
-      const result = await authClient.signUp.email({ name: name.trim(), email: email.trim(), password });
-      if (result.error) {
-        setError(result.error.message ?? "Could not create the account.");
-        return;
-      }
-      await queryClient.invalidateQueries();
-      window.location.assign("/welcome");
+      await authClient.signIn.social({
+        provider: "google",
+        callbackURL,
+        newUserCallbackURL: `${window.location.origin}/welcome`,
+        errorCallbackURL: `${window.location.origin}${isSignup ? "/signup" : "/login"}`,
+      });
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not create the account.");
-    } finally {
+      setError(cause instanceof Error ? cause.message : "Could not start Google sign-in.");
       setPending(false);
     }
   }
@@ -360,79 +127,76 @@ export function SignupPage() {
   return (
     <AuthFrame>
       <div>
-        <p className="eyebrow">Create your record</p>
-        <h1 className="mt-2 text-3xl">Start with the atlas.</h1>
+        <p className="eyebrow">{isSignup ? "Create your record" : "Welcome back"}</p>
+        <h1 className="mt-2 text-3xl">{isSignup ? "Start with Google." : "Continue with Google."}</h1>
         <p className="mt-2 text-sm leading-relaxed text-muted">
-          No credit card, no placement quiz. You begin at L0 and earn levels with evidence.
+          {isSignup
+            ? "Your Google account verifies your email and creates your record. No password, no placement quiz."
+            : "One click verifies your email and restores your record. No password to remember."}
         </p>
       </div>
 
-      {error ? (
+      {visibleError ? (
         <p className="mt-4 rounded-[var(--radius-sm)] border border-danger/30 bg-danger/5 px-3 py-2 text-xs text-danger" role="alert">
-          {error}
+          {visibleError}
         </p>
       ) : null}
 
-      <form className="mt-6 space-y-3" onSubmit={handleSubmit}>
-        <div className="space-y-1.5">
-          <Label htmlFor="name">Name</Label>
-          <Input
-            id="name"
-            autoComplete="name"
-            required
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="Ada Lovelace"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="signup-email">Email</Label>
-          <Input
-            id="signup-email"
-            type="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="you@example.com"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="signup-password">Password</Label>
-          <Input
-            id="signup-password"
-            type="password"
-            autoComplete="new-password"
-            required
-            minLength={10}
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            placeholder="At least 10 characters"
-          />
-          <p className="text-[10px] text-muted">Ten characters minimum. A passphrase is better than a puzzle.</p>
-        </div>
-        <Button type="submit" className="w-full" disabled={pending || config?.passwordEnabled === false}>
-          {pending ? "Creating…" : "Create account"}
-          <ArrowRight className="size-4" />
-        </Button>
-      </form>
+      <Button
+        type="button"
+        variant="outline"
+        size="lg"
+        onClick={() => void handleGoogle()}
+        disabled={pending || !configured}
+        className="mt-6 w-full border-[#dadce0] bg-white text-[#1f1f1f] hover:bg-[#f8f9fa] disabled:bg-white [&_svg]:size-5"
+      >
+        <GoogleIcon />
+        {pending ? "Opening Google…" : isLoading ? "Checking sign-in…" : "Continue with Google"}
+      </Button>
 
-      <div className="my-5 flex items-center gap-3">
-        <span className="h-px flex-1 bg-line" />
-        <span className="font-mono text-[9px] uppercase tracking-wider text-muted">or</span>
-        <span className="h-px flex-1 bg-line" />
-      </div>
-      <GitHubButton callbackURL={`${typeof window !== "undefined" ? window.location.origin : ""}/welcome`} />
+      {!isLoading && !configured ? (
+        <Callout tone="warning" title="Google sign-in is not configured" className="mt-4">
+          Add <code className="font-mono text-[0.9em]">GOOGLE_CLIENT_ID</code> and{" "}
+          <code className="font-mono text-[0.9em]">GOOGLE_CLIENT_SECRET</code> to the deployment
+          secrets, then reload this page.
+        </Callout>
+      ) : null}
+
+      <p className="mt-4 text-center text-[10px] leading-relaxed text-muted">
+        MathMastery only receives your name, email address, and profile image from Google.
+      </p>
 
       <p className="mt-6 text-center text-xs text-muted">
-        Already have an account?{" "}
-        <Link to="/login" className="text-accent underline underline-offset-4">
-          Sign in
-        </Link>
+        {isSignup ? (
+          <>
+            Already have a record?{" "}
+            <Link to="/login" className="text-accent underline underline-offset-4">
+              Sign in
+            </Link>
+          </>
+        ) : (
+          <>
+            New here?{" "}
+            <Link to="/signup" className="text-accent underline underline-offset-4">
+              Create your record
+            </Link>
+          </>
+        )}
       </p>
-      <p className="mt-4 text-center text-[10px] leading-relaxed text-muted">
-        By creating an account you agree to use the atlas honestly: self-reports are claims, not evidence.
-      </p>
+
+      {isSignup ? (
+        <p className="mt-4 text-center text-[10px] leading-relaxed text-muted">
+          By creating an account you agree to use the atlas honestly: self-reports are claims, not evidence.
+        </p>
+      ) : null}
     </AuthFrame>
   );
+}
+
+export function LoginPage() {
+  return <GoogleAuth mode="login" />;
+}
+
+export function SignupPage() {
+  return <GoogleAuth mode="signup" />;
 }

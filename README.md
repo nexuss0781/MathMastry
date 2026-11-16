@@ -201,11 +201,10 @@ BETTER_AUTH_SECRET=your-32-char-secret
 BETTER_AUTH_URL=http://localhost:8787
 WEB_ORIGIN=http://localhost:5173
 SITE_URL=http://localhost:8787
-AUTH_PASSWORD_ENABLED=true
 
-# GitHub OAuth (optional)
-GITHUB_CLIENT_ID=
-GITHUB_CLIENT_SECRET=
+# Google OAuth
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
 
 # AI
 AI_PROVIDER=fixture|openai
@@ -237,9 +236,18 @@ wasmer deploy --owner nexuss0781 --app-name mathmastery --build-remote
 ```
 
 - `app.yaml` declares the Node build, managed Postgres capability, and runtime env.
-- Secrets: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `CRON_SECRET`. Wasmer also injects
-  `DB_HOST` / `DB_PORT` / `DB_NAME` / `DB_USERNAME` / `DB_PASSWORD`; the API composes a
-  TLS `DATABASE_URL` from those when the explicit secret is absent.
+- Secrets: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `CRON_SECRET`, `GOOGLE_CLIENT_ID`,
+  `GOOGLE_CLIENT_SECRET`. Wasmer also injects `DB_HOST` / `DB_PORT` / `DB_NAME` /
+  `DB_USERNAME` / `DB_PASSWORD`; the API composes a TLS `DATABASE_URL` from those when the
+  explicit secret is absent.
+- Google OAuth is the only sign-in method. In Google Cloud Console create a **Web application**
+  OAuth client with:
+  - **Authorized JavaScript origin:** `https://mathmastery.wasmer.app`
+  - **Authorized redirect URI:** `https://mathmastery.wasmer.app/api/auth/callback/google`
+
+  For local development add `http://localhost:5173` and
+  `http://localhost:8787/api/auth/callback/google` as well. Store the client ID and secret as
+  Wasmer app secrets, then redeploy.
 - `pnpm build` bundles every API dependency into `apps/api/dist/index.js`, then copies the
   SPA build and `content/concepts.seed.json` beside it. The Edge runtime therefore needs no
   `node_modules`.

@@ -33,9 +33,8 @@ const schema = z.object({
   BETTER_AUTH_URL: z.string().url().default("http://localhost:8787"),
   WEB_ORIGIN: z.string().url().default("http://localhost:5173"),
   SITE_URL: z.string().url().default("http://localhost:8787"),
-  GITHUB_CLIENT_ID: z.string().optional(),
-  GITHUB_CLIENT_SECRET: z.string().optional(),
-  AUTH_PASSWORD_ENABLED: booleanEnv("true"),
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
   AI_PROVIDER: z.enum(["fixture", "openai"]).default("fixture"),
   OPENAI_API_KEY: z.string().optional(),
   AI_CHAT_MODEL: z.string().default("gpt-4.1-mini"),
@@ -53,5 +52,5 @@ export type Env = z.infer<typeof schema>;
 
 export const env: Env = schema.parse({ ...process.env, DATABASE_URL: databaseUrl });
 
-export const githubEnabled = Boolean(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET);
+export const googleEnabled = Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET);
 export const aiConfigured = env.AI_PROVIDER === "openai" && Boolean(env.OPENAI_API_KEY);

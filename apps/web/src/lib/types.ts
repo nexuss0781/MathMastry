@@ -11,7 +11,7 @@ export interface MeResponse {
     role: string;
     onboardedAt: string | null;
   } | null;
-  capabilities: { github: boolean; aiMode: "fixture" | "openai"; devAuth: boolean };
+  capabilities: { google: boolean; aiMode: "fixture" | "openai" };
 }
 
 export interface DomainProgress {
