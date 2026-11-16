@@ -10,7 +10,7 @@ import { domainMeta, DOMAIN_ORDER } from "@/lib/domains";
 import { cn, formatRelative } from "@/lib/utils";
 
 export function DomainRoute() {
-  const { domain } = useParams({ from: "/atlas/$domain" });
+  const { domain } = useParams({ from: "/authenticated/atlas/$domain" });
   const { data } = useConcepts();
   const concepts = (data?.items ?? []).filter((c) => c.domainSlug === domain);
   const meta = domainMeta(domain);

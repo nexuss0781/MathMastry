@@ -45,7 +45,7 @@ function PromptBox({ label, prompt, onCopy }: { label: string; prompt: string; o
 }
 
 export function ConceptPage() {
-  const { slug } = useParams({ from: "/concepts/$slug" });
+  const { slug } = useParams({ from: "/authenticated/concepts/$slug" });
   const { data: concept, isLoading, error, refetch } = useConcept(slug);
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<"assess" | "recall" | "claim" | "notes" | "tutor">("assess");

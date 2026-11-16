@@ -12,7 +12,7 @@ import { cn, formatDate, formatMinutes, formatRelative } from "@/lib/utils";
 import * as Sonner from "sonner";
 
 export function CurriculumDetailPage() {
-  const { id } = useParams({ from: "/curriculum/$id" });
+  const { id } = useParams({ from: "/authenticated/curriculum/$id" });
   const navigate = useNavigate();
   const { data, isLoading, error, refetch } = useCurriculum(id);
   const [updating, setUpdating] = useState<string | null>(null);

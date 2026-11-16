@@ -1,4 +1,4 @@
-import { createRouter, createRootRoute, createRoute, Outlet } from "@tanstack/react-router";
+import { createRouter, createRootRoute, createRoute, Navigate, Outlet } from "@tanstack/react-router";
 import { authClient } from "./lib/auth";
 import { queryClient } from "./lib/query";
 import { AppShell } from "./components/app-shell";
@@ -33,7 +33,7 @@ const indexRoute = createRoute({
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/login",
-  component: () => <LoginPage redirect={window.location.search.slice(1)} />,
+  component: LoginPage,
 });
 
 const signupRoute = createRoute({
@@ -51,11 +51,24 @@ const welcomeRoute = createRoute({
 // Layout route for authenticated pages - no path segment, just wraps children
 const authenticatedRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "",
+  id: "authenticated",
   component: () => {
-    const { data: session } = authClient.useSession();
+    const { data: session, isPending } = authClient.useSession();
+    if (isPending) {
+      return (
+        <div className="flex min-h-dvh items-center justify-center bg-paper">
+          <span className="eyebrow">Loading your record…</span>
+        </div>
+      );
+    }
     if (!session?.user) {
-      throw new Response(null, { status: 302, headers: { Location: "/login?redirect=" + window.location.pathname } });
+      return (
+        <Navigate
+          to="/login"
+          search={{ redirect: window.location.pathname + window.location.search }}
+          replace
+        />
+      );
     }
     // Use the session user, profile will be loaded via useMe in AppShell
     const u = session.user;
@@ -145,7 +158,7 @@ const settingsRoute = createRoute({
 
 const notFoundRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "*",
+  path: "$",
   component: NotFoundPage,
 });
 

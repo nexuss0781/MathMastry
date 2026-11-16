@@ -28,7 +28,7 @@ interface ChatMessage {
 }
 
 export function TutorChatPage() {
-  const { threadId } = useParams({ from: "/tutor/$threadId" });
+  const { threadId } = useParams({ from: "/authenticated/tutor/$threadId" });
   const navigate = useNavigate();
   const { data, isLoading, error, refetch } = useThread(threadId);
   const [message, setMessage] = useState("");

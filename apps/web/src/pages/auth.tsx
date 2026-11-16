@@ -1,5 +1,5 @@
 import { useState, type FormEvent, type ReactNode } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useSearch } from "@tanstack/react-router";
 import { ArrowRight, GitBranch, KeyRound, Mail, ShieldCheck } from "lucide-react";
 import { authClient } from "@/lib/auth";
 import { api } from "@/lib/api";
@@ -91,7 +91,8 @@ function GitHubButton({ callbackURL }: { callbackURL: string }) {
   );
 }
 
-export function LoginPage({ redirect }: { redirect?: string }) {
+export function LoginPage() {
+  const search = useSearch({ strict: false }) as { redirect?: string };
   const { data: config } = useConfig();
   const [mode, setMode] = useState<"password" | "otp">("password");
   const [email, setEmail] = useState("");
@@ -101,7 +102,7 @@ export function LoginPage({ redirect }: { redirect?: string }) {
   const [devOtp, setDevOtp] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<"password" | "otp" | "send" | null>(null);
-  const target = safeRedirect(redirect);
+  const target = safeRedirect(search.redirect);
   const [sentTo, setSentTo] = useState("");
 
   async function afterAuth() {
